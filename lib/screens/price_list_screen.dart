@@ -14,6 +14,7 @@ import '../models/product.dart';
 import '../widgets/admin_toggle_button.dart';
 import 'product_edit_screen.dart';
 import '../utils/date_utils.dart';
+import 'purchase_request/purchase_request_screen.dart';
 
 /// ===============================
 /// 검색 필드 enum
@@ -275,9 +276,43 @@ class _PriceListScreenState extends State<PriceListScreen> {
         elevation: 1,
         centerTitle: false,
         actions: [
-          if (isAdmin) _buildAdminActions(context),
+          // ===============================
+          // 🔥 발주서 버튼 (신규)
+          // ===============================
+          TextButton.icon(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const PurchaseRequestScreen(),
+                ),
+              );
+            },
+            icon: const Icon(
+              Icons.assignment_outlined,
+              size: 20,
+            ),
+            label: const Text(
+              '발주서',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.black87,
+            ),
+          ),
+
           const SizedBox(width: 8),
+
+          // ===============================
+          // 관리자 전용 액션들
+          // ===============================
+          if (isAdmin) _buildAdminActions(context),
+
+          const SizedBox(width: 8),
+
+          // 관리자 토글 버튼
           const AdminToggleButton(),
+
           const SizedBox(width: 16),
         ],
       ),
@@ -291,7 +326,7 @@ class _PriceListScreenState extends State<PriceListScreen> {
 
           return Column(
             children: [
-              // 1. 검색 영역 (카드 형태)
+              // 1. 검색 영역
               _buildSearchArea(),
 
               // 2. 데이터 테이블 영역
@@ -306,6 +341,9 @@ class _PriceListScreenState extends State<PriceListScreen> {
         },
       ),
 
+      // ===============================
+      // 관리자만 상품 추가 가능
+      // ===============================
       floatingActionButton: isAdmin
           ? FloatingActionButton(
         backgroundColor: _primaryColor,
@@ -323,6 +361,7 @@ class _PriceListScreenState extends State<PriceListScreen> {
           : null,
     );
   }
+
 
   // 관리자용 앱바 액션 버튼들
   Widget _buildAdminActions(BuildContext context) {
@@ -531,14 +570,14 @@ class _PriceListScreenState extends State<PriceListScreen> {
       shadowColor: Colors.black12,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       color: Colors.white,
-      clipBehavior: Clip.antiAlias, // 둥근 모서리 적용
+      clipBehavior: Clip.antiAlias,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Expanded(
             child: Theme(
               data: Theme.of(context).copyWith(
-                dividerColor: Colors.grey[200], // 행 구분선 색상 연하게
+                dividerColor: Colors.grey[200],
               ),
               child: SingleChildScrollView(
                 padding: EdgeInsets.zero,
@@ -546,70 +585,103 @@ class _PriceListScreenState extends State<PriceListScreen> {
                   scrollDirection: Axis.horizontal,
                   child: DataTable(
                     headingRowColor:
-                    MaterialStateProperty.all(_headerColor), // 헤더 배경색
-                    dataRowMinHeight: 52, // 행 높이 살짝 키움
+                    MaterialStateProperty.all(_headerColor),
+                    dataRowMinHeight: 52,
                     dataRowMaxHeight: 52,
                     columnSpacing: 28,
                     horizontalMargin: 24,
+
+                    // ===============================
+                    // 🔥 컬럼 정의 (엑셀 구조 기준)
+                    // ===============================
                     columns: [
                       _col('거래일자', 110),
                       _col('거래처', 140),
-                      _col('분류', 80),
-                      _col('제품명', 400),
+                      _col('구분', 80),
+                      _col('제품명', 260),
+                      _col('제조사', 160),
                       _col('수량', 70, numeric: true),
-                      _col('총금액', 110, numeric: true),
-                      _col('개당단가', 110, numeric: true),
+                      _col('단위', 80),
+                      _col('총금액', 120, numeric: true),
+                      _col('개당단가', 120, numeric: true),
                       _col('비고', 180),
                       if (isAdmin) _col('관리', 100, center: true),
                     ],
+
+                    // ===============================
+                    // 🔥 데이터 행
+                    // ===============================
                     rows: _filtered.map((p) {
                       return DataRow(
                         cells: [
                           _cell(formatDealDate(p.dealDate)),
                           _cell(p.client ?? '', color: Colors.grey[700]),
-                          _cell(p.category ?? '',
-                              isTag: true), // 분류는 태그 스타일로
+                          _cell(p.category ?? '', isTag: true),
+
+                          // 🔥 제품명 (괄호 제거)
                           _cell(
-                            p.spec != null && p.spec!.trim().isNotEmpty
-                                ? '${p.name} (${p.spec})'
-                                : p.name,
+                            p.name,
                             bold: true,
                             size: 15,
                           ),
+
+                          // 🔥 제조사
+                          _cell(p.manufacturer ?? ''),
+
+                          // 🔥 수량
                           _cell(p.quantity.toString(), alignRight: true),
-                          _cell(_fmt(p.totalPrice),
-                              alignRight: true,
-                              color: _primaryColor,
-                              bold: true), // 총금액 강조
+
+                          // 🔥 단위
+                          _cell(p.unit ?? ''),
+
+                          // 🔥 총금액
+                          _cell(
+                            _fmt(p.totalPrice),
+                            alignRight: true,
+                            color: _primaryColor,
+                            bold: true,
+                          ),
+
+                          // 🔥 개당단가
                           _cell(_fmt(p.unitPrice), alignRight: true),
+
+                          // 🔥 비고
                           _cell(p.note ?? '', color: Colors.grey),
+
                           if (isAdmin)
                             DataCell(
                               Center(
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    _actionIcon(Icons.edit_outlined,
-                                        Colors.blue, () async {
-                                          final changed = await Navigator.push<bool>(
-                                            context,
-                                            MaterialPageRoute(
-                                              builder: (_) =>
-                                                  ProductEditScreen(product: p),
-                                            ),
-                                          );
-                                          if (changed == true) _reload();
-                                        }),
+                                    _actionIcon(
+                                      Icons.edit_outlined,
+                                      Colors.blue,
+                                          () async {
+                                        final changed =
+                                        await Navigator.push<bool>(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (_) =>
+                                                ProductEditScreen(product: p),
+                                          ),
+                                        );
+                                        if (changed == true) _reload();
+                                      },
+                                    ),
                                     const SizedBox(width: 8),
                                     _actionIcon(
-                                        Icons.delete_outline, Colors.red,
-                                            () async {
-                                          final ok = await _confirmDelete(context);
-                                          if (ok) {
-                                            await DB.deleteProduct(p.id);
-                                            _reload();
-                                          }
-                                        }),
+                                      Icons.delete_outline,
+                                      Colors.red,
+                                          () async {
+                                        final ok =
+                                        await _confirmDelete(context);
+                                        if (ok) {
+                                          await DB.deleteProduct(p.id);
+                                          _reload();
+                                        }
+                                      },
+                                    ),
                                   ],
                                 ),
                               ),
@@ -626,6 +698,7 @@ class _PriceListScreenState extends State<PriceListScreen> {
       ),
     );
   }
+
 
   // 빈 화면 위젯
   Widget _buildEmptyState(IconData icon, String message) {

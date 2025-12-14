@@ -4,16 +4,17 @@ import 'package:excel/excel.dart';
 import 'package:file_picker/file_picker.dart';
 
 class ExcelImportTemplate {
-  /// 🔥 엑셀 헤더 (순서 엄격)
+  /// 🔥 엑셀 헤더 (네가 원하는 구조와 1:1 일치)
   static const headers = [
-    '거래일자',   // A
-    '거래처',     // B
-    '분류',       // C
-    '제조사',     // D
-    '제품명',     // E
-    '수량',       // G
-    '총금액',     // H
-    '비고',       // J
+    '거래일자',
+    '거래처',
+    '구분',
+    '제품명',
+    '제조사',
+    '수량',
+    '단위',
+    '총금액',
+    '비고',
   ];
 
   static Future<void> downloadTemplate() async {
@@ -38,17 +39,18 @@ class ExcelImportTemplate {
     );
 
     // ===============================
-    // 안내 행
+    // 안내 행 (🔥 Import에서 스킵됨)
     // ===============================
     sheet.appendRow([
-      TextCellValue('예: 2025-10-30 또는 20241030'),
-      TextCellValue('필수'),
-      TextCellValue('선택'),
-      TextCellValue('선택'),
-      TextCellValue('필수'),
-      TextCellValue('숫자 (기본 1)'),
-      TextCellValue('숫자'),
-      TextCellValue('선택'),
+      TextCellValue('예: 2025-10-30 또는 20241030'), // 거래일자
+      TextCellValue('필수'),                       // 거래처
+      TextCellValue('선택'),                       // 구분
+      TextCellValue('필수'),                       // 제품명
+      TextCellValue('선택'),                       // 제조사
+      TextCellValue('숫자 (기본 1)'),               // 수량
+      TextCellValue('예: EA, BOX, SET'),            // 단위
+      TextCellValue('숫자'),                       // 총금액
+      TextCellValue('선택'),                       // 비고
     ]);
 
     // ===============================

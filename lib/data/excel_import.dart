@@ -61,7 +61,7 @@ class ExcelImport {
       if (sheet.rows.isEmpty) continue;
 
       // -------------------------------
-      // 1) 헤더 검증
+      // 1) 헤더 검증 (템플릿 기준)
       // -------------------------------
       final header = sheet.rows.first
           .map((c) => c?.value?.toString().trim() ?? '')
@@ -81,14 +81,18 @@ class ExcelImport {
       if (!headerOk) continue;
 
       // -------------------------------
-      // 2) 시작 행 결정
+      // 2) 시작 행 결정 (안내/예시 행 스킵)
       // -------------------------------
       int startRow = 1;
+
       if (sheet.rows.length > 1) {
-        final r1c0 = sheet.rows[1].isNotEmpty
-            ? (sheet.rows[1][0]?.value?.toString().trim() ?? '')
+        final firstDataRow = sheet.rows[1];
+        final c0 = firstDataRow.isNotEmpty
+            ? firstDataRow[0]?.value?.toString().trim() ?? ''
             : '';
-        if (r1c0 == '필수' || r1c0 == '선택') {
+
+        // "예: 2025-10-30 또는 20241030"
+        if (c0.startsWith('예')) {
           startRow = 2;
         }
       }
@@ -105,29 +109,66 @@ class ExcelImport {
           continue;
         }
 
-        String _s(int idx) =>
-            (idx < row.length ? row[idx]?.value?.toString() : null)
-                ?.trim() ??
-                '';
-
-        int _i(int idx, {int def = 0}) {
-          final v = _s(idx).replaceAll(',', '');
-          return int.tryParse(v) ?? def;
+        /// 문자열 안전 추출
+        String _s(int idx) {
+          if (idx >= row.length) return '';
+          final v = row[idx]?.value;
+          return v?.toString().trim() ?? '';
         }
 
-        final dealDateRaw = _s(0);
-        final client = _s(1);
-        final category = _s(2);
-        final manufacturer = _s(3);
-        final name = _s(4);
-        final spec = _s(5);
-        final quantity = _i(6, def: 1);
-        final totalPrice = _i(7, def: 0);
-        final note = _s(9);
+        /// 숫자 안전 파싱 (excel 구버전 대응)
+        int _i(int idx, {int def = 0}) {
+          if (idx >= row.length) return def;
 
-        if (name.isEmpty) {
+          final data = row[idx];
+          if (data == null) return def;
+
+          final raw = data.value; // dynamic
+
+          if (raw is num) {
+            return (raw as num).round();
+          }
+
+          final s = raw
+              .toString()
+              .replaceAll(',', '')
+              .replaceAll('원', '')
+              .replaceAll('₩', '')
+              .trim();
+
+          return int.tryParse(s) ?? def;
+        }
+
+        // ===============================
+        // 🔥 컬럼 매핑 (새 엑셀 구조 기준)
+        // ===============================
+        final dealDateRaw = _s(0); // 거래일자
+        final client = _s(1);      // 거래처
+        final category = _s(2);    // 구분
+        final name = _s(3);        // 제품명
+        final manufacturer = _s(4); // 제조사
+        int quantity = _i(5, def: 1); // 수량
+        final unit = _s(6);        // 단위
+        int totalPrice = _i(7, def: 0); // 총금액
+        final note = _s(8);        // 비고
+
+        // -------------------------------
+        // 안내/예시 행 2차 방어
+        // -------------------------------
+        if (dealDateRaw.startsWith('예') ||
+            name == '필수' ||
+            name == '선택' ||
+            name.isEmpty) {
           _notify(onProgress, processed, totalRows);
           continue;
+        }
+
+        // -------------------------------
+        // 수량/금액 뒤바뀐 경우 자동 복구
+        // -------------------------------
+        if (quantity > 10000 && totalPrice <= 10) {
+          totalPrice = quantity;
+          quantity = 1;
         }
 
         final dealDate = normalizeDealDate(
@@ -141,8 +182,8 @@ class ExcelImport {
           'category': category,
           'manufacturer': manufacturer,
           'name': name,
-          'spec': spec,
-          'unit': '',
+          'spec': null,        // ❌ 더 이상 사용 안 함
+          'unit': unit,        // ✅ 단위 저장
           'quantity': quantity <= 0 ? 1 : quantity,
           'total_price': totalPrice,
           'note': note,
