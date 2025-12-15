@@ -16,6 +16,7 @@ import 'product_edit_screen.dart';
 import '../utils/date_utils.dart';
 import 'purchase_request/purchase_request_screen.dart';
 import 'admin/category_rule_manage_screen.dart';
+
 /// ===============================
 /// 검색 필드 enum
 /// ===============================
@@ -56,8 +57,8 @@ class _PriceListScreenState extends State<PriceListScreen> {
   List<Product> _filtered = [];
 
   // 디자인용 색상 팔레트
-  final Color _headerColor = const Color(0xFFF5F7FA); // 테이블 헤더 배경색
   final Color _primaryColor = const Color(0xFF3F51B5); // 주요 포인트 컬러
+  final Color _backgroundColor = const Color(0xFFF5F7FA); // 배경색
 
   @override
   void initState() {
@@ -87,18 +88,14 @@ class _PriceListScreenState extends State<PriceListScreen> {
       // 1. 전체 리스트에서 시작
       Iterable<Product> result = _allItems;
 
-      // 2. 연도 필터 적용 (선택된 연도보다 이전 자료 무시)
+      // 2. 연도 필터 적용
       if (_minYear != null) {
         result = result.where((p) {
-          // dealDate가 'YYYY-MM-DD' 형식의 String이라고 가정
-          // 안전하게 앞 4자리를 잘라서 연도 비교
           try {
-            // dealDate가 String인지 DateTime인지 확실치 않을 때를 대비해 toString() 사용
             final yearStr = p.dealDate.toString().substring(0, 4);
             final pYear = int.tryParse(yearStr) ?? 0;
             return pYear >= _minYear!;
           } catch (e) {
-            // 날짜 형식이 올바르지 않으면 검색 결과에 포함시키지 않음(혹은 포함시킴)
             return false;
           }
         });
@@ -177,7 +174,7 @@ class _PriceListScreenState extends State<PriceListScreen> {
     );
   }
 
-  // 엑셀 가져오기 로직 분리
+  // 엑셀 가져오기 로직
   Future<void> _handleExcelImport() async {
     final mode = await showDialog<bool>(
       context: context,
@@ -205,7 +202,6 @@ class _PriceListScreenState extends State<PriceListScreen> {
 
     if (!mounted) return;
 
-    // 🔄 진행률 다이얼로그
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -265,7 +261,7 @@ class _PriceListScreenState extends State<PriceListScreen> {
     final isAdmin = context.watch<AppState>().isAdmin;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF0F2F5), // 전체 배경색 (연한 회색)
+      backgroundColor: _backgroundColor,
       appBar: AppBar(
         title: const Text(
           '단가 관리',
@@ -273,12 +269,11 @@ class _PriceListScreenState extends State<PriceListScreen> {
         ),
         backgroundColor: Colors.white,
         foregroundColor: Colors.black87,
-        elevation: 1,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        shape: Border(bottom: BorderSide(color: Colors.grey[200]!)),
         centerTitle: false,
         actions: [
-          // ===============================
-          // 🔥 발주서 버튼 (신규)
-          // ===============================
           TextButton.icon(
             onPressed: () {
               Navigator.push(
@@ -288,10 +283,7 @@ class _PriceListScreenState extends State<PriceListScreen> {
                 ),
               );
             },
-            icon: const Icon(
-              Icons.assignment_outlined,
-              size: 20,
-            ),
+            icon: const Icon(Icons.assignment_outlined, size: 20),
             label: const Text(
               '발주서',
               style: TextStyle(fontWeight: FontWeight.bold),
@@ -300,23 +292,13 @@ class _PriceListScreenState extends State<PriceListScreen> {
               foregroundColor: Colors.black87,
             ),
           ),
-
           const SizedBox(width: 8),
-
-          // ===============================
-          // 관리자 전용 액션들
-          // ===============================
           if (isAdmin) _buildAdminActions(context),
-
           const SizedBox(width: 8),
-
-          // 관리자 토글 버튼
           const AdminToggleButton(),
-
           const SizedBox(width: 16),
         ],
       ),
-
       body: FutureBuilder<void>(
         future: _future,
         builder: (context, snapshot) {
@@ -326,10 +308,7 @@ class _PriceListScreenState extends State<PriceListScreen> {
 
           return Column(
             children: [
-              // 1. 검색 영역
               _buildSearchArea(),
-
-              // 2. 데이터 테이블 영역
               Expanded(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
@@ -340,10 +319,6 @@ class _PriceListScreenState extends State<PriceListScreen> {
           );
         },
       ),
-
-      // ===============================
-      // 관리자만 상품 추가 가능
-      // ===============================
       floatingActionButton: isAdmin
           ? FloatingActionButton(
         backgroundColor: _primaryColor,
@@ -362,12 +337,9 @@ class _PriceListScreenState extends State<PriceListScreen> {
     );
   }
 
-
-  // 관리자용 앱바 액션 버튼들
   Widget _buildAdminActions(BuildContext context) {
     return Row(
       children: [
-// 🔥 자동 분류 규칙 관리 버튼 (NEW)
         IconButton(
           tooltip: '자동 분류 규칙 관리',
           icon: const Icon(Icons.rule_folder_outlined),
@@ -378,11 +350,7 @@ class _PriceListScreenState extends State<PriceListScreen> {
                 builder: (_) => const CategoryRuleManageScreen(),
               ),
             );
-
-            // 🔥 재분류가 일어났으면 다시 로드
-            if (changed == true) {
-              _reload();
-            }
+            if (changed == true) _reload();
           },
         ),
         PopupMenuButton<String>(
@@ -439,51 +407,46 @@ class _PriceListScreenState extends State<PriceListScreen> {
     );
   }
 
-  // 검색 영역 위젯
   Widget _buildSearchArea() {
-    // 연도 리스트 생성 (2020년 ~ 현재 연도)
     final int currentYear = DateTime.now().year;
     final List<int> yearList = List.generate(
-        currentYear - 2020 + 1,
-            (index) => 2020 + index
-    ).reversed.toList(); // 최신 연도가 위로 오게
+        currentYear - 2020 + 1, (index) => 2020 + index).reversed.toList();
 
     return Container(
       padding: const EdgeInsets.all(16),
       child: Card(
-        elevation: 2,
-        shadowColor: Colors.black12,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: BorderSide(color: Colors.grey[200]!)
+        ),
         color: Colors.white,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: Row(
             children: [
-              // [추가] 연도 필터 드롭다운
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 decoration: BoxDecoration(
-                  color: Colors.grey[100],
+                  color: Colors.grey[50],
                   borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.grey[200]!),
                 ),
                 child: DropdownButtonHideUnderline(
                   child: DropdownButton<int?>(
                     value: _minYear,
-                    hint: const Text('기간'),
+                    hint: const Text('기간', style: TextStyle(fontSize: 14)),
                     icon: const Icon(Icons.calendar_today, size: 16, color: Colors.grey),
                     onChanged: (v) {
                       setState(() {
                         _minYear = v;
-                        // 필요 시 여기서 바로 검색 실행: _doSearch();
                       });
                     },
                     items: [
-                      // 전체 기간 옵션
                       const DropdownMenuItem(
                         value: null,
                         child: Text('전체 기간', style: TextStyle(fontWeight: FontWeight.w500)),
                       ),
-                      // 연도별 옵션
                       ...yearList.map((year) {
                         return DropdownMenuItem(
                           value: year,
@@ -495,13 +458,12 @@ class _PriceListScreenState extends State<PriceListScreen> {
                 ),
               ),
               const SizedBox(width: 12),
-
-              // 기존 검색 조건 드롭다운
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 decoration: BoxDecoration(
-                  color: Colors.grey[100],
+                  color: Colors.grey[50],
                   borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.grey[200]!),
                 ),
                 child: DropdownButtonHideUnderline(
                   child: DropdownButton<PriceSearchField>(
@@ -524,46 +486,41 @@ class _PriceListScreenState extends State<PriceListScreen> {
                 ),
               ),
               const SizedBox(width: 12),
-
-              // 검색어 입력 필드
               Expanded(
                 child: TextField(
                   decoration: InputDecoration(
                     hintText: '${searchFieldLabel(_searchField)}을(를) 입력하세요',
-                    hintStyle: TextStyle(color: Colors.grey[400]),
+                    hintStyle: TextStyle(color: Colors.grey[400], fontSize: 14),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
                       borderSide: BorderSide.none,
                     ),
                     filled: true,
-                    fillColor: Colors.grey[100],
-                    contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 0),
+                    fillColor: Colors.grey[50],
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16),
                     prefixIcon: const Icon(Icons.search, color: Colors.grey),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(color: Colors.grey[200]!),
+                    ),
                   ),
-                  onChanged: (v) {
-                    _inputKeyword = v.trim().toLowerCase();
-                  },
+                  onChanged: (v) => _inputKeyword = v.trim().toLowerCase(),
                   onSubmitted: (_) => _doSearch(),
                 ),
               ),
               const SizedBox(width: 12),
-
-              // 검색 버튼
               ElevatedButton(
                 onPressed: _doSearch,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: _primaryColor,
                   foregroundColor: Colors.white,
-                  padding:
-                  const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
                   elevation: 0,
                 ),
-                child: const Text('조회',
-                    style: TextStyle(fontWeight: FontWeight.bold)),
+                child: const Text('조회', style: TextStyle(fontWeight: FontWeight.bold)),
               ),
             ],
           ),
@@ -572,143 +529,64 @@ class _PriceListScreenState extends State<PriceListScreen> {
     );
   }
 
-  // 결과 테이블 영역
+  // ============================================================
+  // 🔥 [개선된 UI] 반응형 리스트 (오른쪽 여백 제거 및 디자인 개선)
+  // ============================================================
+
+  // 컬럼별 화면 비율 설정 (Flex)
+  final Map<String, int> _colFlex = {
+    'date': 2,
+    'client': 3,
+    'category': 2,
+    'name': 6, // 이름이 가장 긺
+    'maker': 3,
+    'qty': 1,
+    'unit': 1,
+    'total': 2,
+    'price': 2,
+    'note': 3,
+    'action': 2,
+  };
+
   Widget _buildResultArea(bool isAdmin) {
     if (!_searched) {
-      return _buildEmptyState(
-          Icons.search_rounded, '검색 조건을 입력하고 조회 버튼을 눌러주세요.');
+      return _buildEmptyState(Icons.search_rounded, '검색 조건을 입력하고 조회 버튼을 눌러주세요.');
     }
 
     if (_filtered.isEmpty) {
       return _buildEmptyState(Icons.info_outline_rounded, '검색 결과가 없습니다.');
     }
 
-    return Card(
-      elevation: 2,
-      shadowColor: Colors.black12,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      color: Colors.white,
-      clipBehavior: Clip.antiAlias,
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey[200]!),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          // 1. 헤더 영역
+          _buildTableHeader(isAdmin),
+
+          const Divider(height: 1, thickness: 1, color: Color(0xFFEEEEEE)),
+
+          // 2. 리스트 영역 (Expanded로 채움)
           Expanded(
-            child: Theme(
-              data: Theme.of(context).copyWith(
-                dividerColor: Colors.grey[200],
-              ),
-              child: SingleChildScrollView(
-                padding: EdgeInsets.zero,
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: DataTable(
-                    headingRowColor:
-                    MaterialStateProperty.all(_headerColor),
-                    dataRowMinHeight: 52,
-                    dataRowMaxHeight: 52,
-                    columnSpacing: 28,
-                    horizontalMargin: 24,
-
-                    // ===============================
-                    // 🔥 컬럼 정의 (엑셀 구조 기준)
-                    // ===============================
-                    columns: [
-                      _col('거래일자', 110),
-                      _col('거래처', 140),
-                      _col('구분', 80),
-                      _col('제품명', 260),
-                      _col('제조사', 160),
-                      _col('수량', 70, numeric: true),
-                      _col('단위', 80),
-                      _col('총금액', 120, numeric: true),
-                      _col('개당단가', 120, numeric: true),
-                      _col('비고', 180),
-                      if (isAdmin) _col('관리', 100, center: true),
-                    ],
-
-                    // ===============================
-                    // 🔥 데이터 행
-                    // ===============================
-                    rows: _filtered.map((p) {
-                      return DataRow(
-                        cells: [
-                          _cell(formatDealDate(p.dealDate)),
-                          _cell(p.client ?? '', color: Colors.grey[700]),
-                          _cell(p.category ?? '', isTag: true),
-
-                          // 🔥 제품명 (괄호 제거)
-                          _cell(
-                            p.name,
-                            bold: true,
-                            size: 15,
-                          ),
-
-                          // 🔥 제조사
-                          _cell(p.manufacturer ?? ''),
-
-                          // 🔥 수량
-                          _cell(p.quantity.toString(), alignRight: true),
-
-                          // 🔥 단위
-                          _cell(p.unit ?? ''),
-
-                          // 🔥 총금액
-                          _cell(
-                            _fmt(p.totalPrice),
-                            alignRight: true,
-                            color: _primaryColor,
-                            bold: true,
-                          ),
-
-                          // 🔥 개당단가
-                          _cell(_fmt(p.unitPrice), alignRight: true),
-
-                          // 🔥 비고
-                          _cell(p.note ?? '', color: Colors.grey),
-
-                          if (isAdmin)
-                            DataCell(
-                              Center(
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    _actionIcon(
-                                      Icons.edit_outlined,
-                                      Colors.blue,
-                                          () async {
-                                        final changed =
-                                        await Navigator.push<bool>(
-                                          context,
-                                          MaterialPageRoute(
-                                            builder: (_) =>
-                                                ProductEditScreen(product: p),
-                                          ),
-                                        );
-                                        if (changed == true) _reload();
-                                      },
-                                    ),
-                                    const SizedBox(width: 8),
-                                    _actionIcon(
-                                      Icons.delete_outline,
-                                      Colors.red,
-                                          () async {
-                                        final ok =
-                                        await _confirmDelete(context);
-                                        if (ok) {
-                                          await DB.deleteProduct(p.id);
-                                          _reload();
-                                        }
-                                      },
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                        ],
-                      );
-                    }).toList(),
-                  ),
-                ),
+            child: Scrollbar(
+              thumbVisibility: true,
+              child: ListView.separated(
+                itemCount: _filtered.length,
+                separatorBuilder: (ctx, idx) => const Divider(height: 1, thickness: 0.5, color: Color(0xFFF5F5F5)),
+                itemBuilder: (context, index) {
+                  return _buildTableRow(_filtered[index], isAdmin);
+                },
               ),
             ),
           ),
@@ -717,103 +595,193 @@ class _PriceListScreenState extends State<PriceListScreen> {
     );
   }
 
+  // 테이블 헤더
+  Widget _buildTableHeader(bool isAdmin) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      child: Row(
+        children: [
+          _headerText('거래일자', flex: _colFlex['date']!),
+          _headerText('거래처', flex: _colFlex['client']!),
+          _headerText('구분', flex: _colFlex['category']!, center: true),
+          _headerText('제품명', flex: _colFlex['name']!),
+          _headerText('', flex: _colFlex['maker']!),
+          _headerText('수량', flex: _colFlex['qty']!, alignRight: true),
+          _headerText('단위', flex: _colFlex['unit']!, center: true),
+          _headerText('총금액', flex: _colFlex['total']!, alignRight: true),
+          _headerText('개당단가', flex: _colFlex['price']!, alignRight: true),
+          _headerText('비고', flex: _colFlex['note']!),
+          if (isAdmin) _headerText('관리', flex: _colFlex['action']!, center: true),
+        ],
+      ),
+    );
+  }
 
-  // 빈 화면 위젯
+  // 데이터 행
+  Widget _buildTableRow(Product p, bool isAdmin) {
+    return Material(
+      color: Colors.white,
+      child: InkWell(
+        hoverColor: _primaryColor.withOpacity(0.04),
+        onTap: () {
+          // 필요시 상세 보기 기능 추가
+        },
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(
+            children: [
+              // 날짜
+              _rowText(formatDealDate(p.dealDate), flex: _colFlex['date']!, color: Colors.grey[600]),
+
+              // 거래처
+              _rowText(p.client ?? '-', flex: _colFlex['client']!, color: Colors.grey[800]),
+
+              // 구분 (뱃지 스타일)
+              Expanded(
+                flex: _colFlex['category']!,
+                child: Center(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[100],
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: Colors.grey[300]!),
+                    ),
+                    child: Text(
+                      p.category ?? '',
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.black54),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ),
+              ),
+
+              // 제품명 (강조)
+              _rowText(p.name, flex: _colFlex['name']!, bold: true, size: 14),
+
+              // 제조사
+              _rowText(p.manufacturer ?? '', flex: _colFlex['maker']!, color: Colors.grey[600]),
+
+              // 수량
+              _rowText(p.quantity.toString(), flex: _colFlex['qty']!, alignRight: true),
+
+              // 단위
+              _rowText(p.unit ?? '', flex: _colFlex['unit']!, center: true, color: Colors.grey[600]),
+
+              // 총금액 (색상 강조)
+              _rowText(_fmt(p.totalPrice), flex: _colFlex['total']!, alignRight: true, color: _primaryColor, bold: true),
+
+              // 단가
+              _rowText(_fmt(p.unitPrice), flex: _colFlex['price']!, alignRight: true),
+
+              // 비고
+              _rowText(p.note ?? '', flex: _colFlex['note']!, color: Colors.grey[500], size: 13),
+
+              // 관리 버튼 (Admin)
+              if (isAdmin)
+                Expanded(
+                  flex: _colFlex['action']!,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      _actionIcon(Icons.edit_outlined, Colors.blue, () async {
+                        final changed = await Navigator.push<bool>(
+                          context,
+                          MaterialPageRoute(builder: (_) => ProductEditScreen(product: p)),
+                        );
+                        if (changed == true) _reload();
+                      }),
+                      const SizedBox(width: 8),
+                      _actionIcon(Icons.delete_outline, Colors.red, () async {
+                        final ok = await _confirmDelete(context);
+                        if (ok) {
+                          await DB.deleteProduct(p.id);
+                          _reload();
+                        }
+                      }),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // -------------------------
+  // UI 헬퍼 메서드들
+  // -------------------------
+
+  Widget _headerText(String text, {required int flex, bool alignRight = false, bool center = false}) {
+    return Expanded(
+      flex: flex,
+      child: Text(
+        text,
+        textAlign: center ? TextAlign.center : (alignRight ? TextAlign.right : TextAlign.left),
+        style: TextStyle(
+          fontWeight: FontWeight.w600,
+          color: Colors.grey[700],
+          fontSize: 13,
+        ),
+      ),
+    );
+  }
+
+  Widget _rowText(String text, {
+    required int flex,
+    bool alignRight = false,
+    bool center = false,
+    bool bold = false,
+    Color? color,
+    double size = 14,
+  }) {
+    return Expanded(
+      flex: flex,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4), // 간격 확보
+        child: Text(
+          text,
+          textAlign: center ? TextAlign.center : (alignRight ? TextAlign.right : TextAlign.left),
+          style: TextStyle(
+            fontWeight: bold ? FontWeight.w600 : FontWeight.normal,
+            color: color ?? Colors.black87,
+            fontSize: size,
+          ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ),
+    );
+  }
+
+  Widget _actionIcon(IconData icon, Color color, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(4),
+      child: Container(
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Icon(icon, size: 16, color: color),
+      ),
+    );
+  }
+
   Widget _buildEmptyState(IconData icon, String message) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, size: 64, color: Colors.grey[300]),
+          Icon(icon, size: 48, color: Colors.grey[300]),
           const SizedBox(height: 16),
           Text(
             message,
-            style: TextStyle(
-              fontSize: 16,
-              color: Colors.grey[500],
-              fontWeight: FontWeight.w500,
-            ),
+            style: TextStyle(fontSize: 16, color: Colors.grey[500], fontWeight: FontWeight.w500),
           ),
         ],
-      ),
-    );
-  }
-
-  // 관리 아이콘 버튼 스타일링
-  Widget _actionIcon(IconData icon, Color color, VoidCallback onTap) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        padding: const EdgeInsets.all(6),
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Icon(icon, size: 18, color: color),
-      ),
-    );
-  }
-
-  DataColumn _col(String label, double width,
-      {bool numeric = false, bool center = false}) {
-    return DataColumn(
-      numeric: numeric,
-      label: Container(
-        width: width,
-        alignment: center
-            ? Alignment.center
-            : (numeric ? Alignment.centerRight : Alignment.centerLeft),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            color: Colors.grey[700],
-            fontSize: 14,
-          ),
-        ),
-      ),
-    );
-  }
-
-  DataCell _cell(
-      String text, {
-        bool bold = false,
-        bool alignRight = false,
-        Color? color,
-        double size = 14,
-        bool isTag = false,
-      }) {
-    if (isTag) {
-      return DataCell(
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          decoration: BoxDecoration(
-            color: Colors.grey[100],
-            borderRadius: BorderRadius.circular(4),
-            border: Border.all(color: Colors.grey[300]!),
-          ),
-          child: Text(
-            text,
-            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
-          ),
-        ),
-      );
-    }
-
-    return DataCell(
-      Align(
-        alignment: alignRight ? Alignment.centerRight : Alignment.centerLeft,
-        child: Text(
-          text,
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            fontWeight: bold ? FontWeight.w600 : null,
-            color: color ?? Colors.black87,
-            fontSize: size,
-          ),
-        ),
       ),
     );
   }
@@ -832,12 +800,10 @@ class _PriceListScreenState extends State<PriceListScreen> {
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () => Navigator.pop(context, true),
-            child:
-            const Text('삭제', style: TextStyle(color: Colors.white)),
+            child: const Text('삭제', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
-    )) ??
-        false;
+    )) ?? false;
   }
 }

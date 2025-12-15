@@ -30,18 +30,7 @@ class PurchaseRequestForm extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ===============================
-          //  1열: 발주번호 / 발주일
-          // ===============================
-          Row(
-            children: [
-              _labelBox('발주번호', '자동 생성'),
-              const SizedBox(width: 12),
-              _labelBox('발주일자', today),
-            ],
-          ),
 
-          const SizedBox(height: 12),
 
           // ===============================
           //  2열: 거래처 / 담당자
@@ -52,7 +41,7 @@ class PurchaseRequestForm extends StatelessWidget {
                 child: _inputBox(
                   label: '거래처',
                   controller: vendorCtrl,
-                  hint: '선택 또는 직접 입력',
+                  hint: '거래처 입력',
                 ),
               ),
               const SizedBox(width: 12),

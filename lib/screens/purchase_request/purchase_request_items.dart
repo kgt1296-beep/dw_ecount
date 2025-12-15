@@ -175,7 +175,7 @@ class _ProductNameCell extends StatelessWidget {
 /// ===============================================
 ///  수량 입력 셀
 /// ===============================================
-class _QtyCell extends StatelessWidget {
+class _QtyCell extends StatefulWidget {
   final double initialValue;
   final ValueChanged<double> onChanged;
 
@@ -185,17 +185,47 @@ class _QtyCell extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
-    final ctrl = TextEditingController(
-      text: initialValue.toStringAsFixed(
-        initialValue % 1 == 0 ? 0 : 2,
-      ),
-    );
+  State<_QtyCell> createState() => _QtyCellState();
+}
 
+class _QtyCellState extends State<_QtyCell> {
+  late final TextEditingController _ctrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = TextEditingController(
+      text: widget.initialValue % 1 == 0
+          ? widget.initialValue.toStringAsFixed(0)
+          : widget.initialValue.toString(),
+    );
+  }
+
+  @override
+  void didUpdateWidget(covariant _QtyCell oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final newText = widget.initialValue % 1 == 0
+        ? widget.initialValue.toStringAsFixed(0)
+        : widget.initialValue.toString();
+
+    if (oldWidget.initialValue != widget.initialValue &&
+        _ctrl.text != newText) {
+      _ctrl.text = newText;
+    }
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return SizedBox(
       width: 80,
       child: TextField(
-        controller: ctrl,
+        controller: _ctrl,
         keyboardType: TextInputType.number,
         textAlign: TextAlign.center,
         decoration: const InputDecoration(
@@ -205,7 +235,7 @@ class _QtyCell extends StatelessWidget {
         onChanged: (v) {
           final parsed = double.tryParse(v);
           if (parsed != null) {
-            onChanged(parsed);
+            widget.onChanged(parsed);
           }
         },
       ),
@@ -213,10 +243,11 @@ class _QtyCell extends StatelessWidget {
   }
 }
 
+
 /// ===============================================
 ///  🔥 단위 입력 셀 (수정 가능)
 /// ===============================================
-class _UnitInputCell extends StatelessWidget {
+class _UnitInputCell extends StatefulWidget {
   final String initialValue;
   final ValueChanged<String> onChanged;
 
@@ -226,23 +257,41 @@ class _UnitInputCell extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
-    final ctrl = TextEditingController(text: initialValue);
+  State<_UnitInputCell> createState() => _UnitInputCellState();
+}
 
+class _UnitInputCellState extends State<_UnitInputCell> {
+  late final TextEditingController _ctrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = TextEditingController(text: widget.initialValue);
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return SizedBox(
       width: 70,
       child: TextField(
-        controller: ctrl,
+        controller: _ctrl,
         textAlign: TextAlign.center,
         decoration: const InputDecoration(
           isDense: true,
           border: OutlineInputBorder(),
         ),
-        onChanged: onChanged,
+        onChanged: widget.onChanged,
       ),
     );
   }
 }
+
 
 /// ===============================================
 ///  비고 입력 셀
