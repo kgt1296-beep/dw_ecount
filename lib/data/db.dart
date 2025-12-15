@@ -24,8 +24,6 @@ class DB {
     final dir = await getApplicationSupportDirectory();
     final dbPath = join(dir.path, 'dw_ecount.db');
 
-    final exists = await File(dbPath).exists();
-
     final db = await openDatabase(
       dbPath,
       version: 1,
@@ -34,8 +32,8 @@ class DB {
       },
     );
 
-    // 기존 DB인데 테이블/컬럼 누락 대비
-    await _ensureColumns(db);
+    // 🔥 기존 DB + 신규 테이블 대응 (핵심)
+    await _ensureSchema(db);
 
     return db;
   }
@@ -56,9 +54,12 @@ class DB {
   }
 
   // ===============================
-  // 컬럼 보정 (기존 DB 대응)
+  // 스키마 보정 (업데이트 대응)
   // ===============================
-  static Future<void> _ensureColumns(Database db) async {
+  static Future<void> _ensureSchema(Database db) async {
+    // -------------------------------
+    // products 컬럼 보정
+    // -------------------------------
     final result = await db.rawQuery("PRAGMA table_info(products)");
     final columns = result.map((e) => e['name'] as String).toSet();
 
@@ -95,17 +96,29 @@ class DB {
     if (!columns.contains('note')) {
       await add("ALTER TABLE products ADD COLUMN note TEXT");
     }
+
+    // -------------------------------
+    // 🔥 category_rules 테이블 생성
+    // -------------------------------
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS category_rules (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        category_name TEXT NOT NULL,
+        priority INTEGER NOT NULL,
+        keywords TEXT NOT NULL,
+        is_active INTEGER NOT NULL DEFAULT 1
+      )
+    ''');
   }
 
   // ===============================
   // CRUD - Products
   // ===============================
-
   static Future<List<Map<String, dynamic>>> getProducts() async {
     final db = await instance;
     return db.query(
       'products',
-      orderBy: 'deal_date, client, category, name',
+      orderBy: 'deal_date DESC, client ASC, category ASC, name ASC',
     );
   }
 

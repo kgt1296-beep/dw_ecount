@@ -15,7 +15,7 @@ import '../widgets/admin_toggle_button.dart';
 import 'product_edit_screen.dart';
 import '../utils/date_utils.dart';
 import 'purchase_request/purchase_request_screen.dart';
-
+import 'admin/category_rule_manage_screen.dart';
 /// ===============================
 /// 검색 필드 enum
 /// ===============================
@@ -27,7 +27,7 @@ enum PriceSearchField {
 String searchFieldLabel(PriceSearchField field) {
   switch (field) {
     case PriceSearchField.category:
-      return '분류';
+      return '구분';
     case PriceSearchField.productName:
       return '제품명';
   }
@@ -367,6 +367,24 @@ class _PriceListScreenState extends State<PriceListScreen> {
   Widget _buildAdminActions(BuildContext context) {
     return Row(
       children: [
+// 🔥 자동 분류 규칙 관리 버튼 (NEW)
+        IconButton(
+          tooltip: '자동 분류 규칙 관리',
+          icon: const Icon(Icons.rule_folder_outlined),
+          onPressed: () async {
+            final changed = await Navigator.push<bool>(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const CategoryRuleManageScreen(),
+              ),
+            );
+
+            // 🔥 재분류가 일어났으면 다시 로드
+            if (changed == true) {
+              _reload();
+            }
+          },
+        ),
         PopupMenuButton<String>(
           tooltip: 'DB 관리',
           icon: const Icon(Icons.storage_outlined),
